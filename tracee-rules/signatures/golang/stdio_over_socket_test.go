@@ -1,25 +1,50 @@
 package main
 
 import (
+	tracee "github.com/aquasecurity/tracee/tracee/external"
 	"testing"
 
 	"github.com/aquasecurity/tracee/tracee-rules/signatures/signaturestest"
 	"github.com/aquasecurity/tracee/tracee-rules/types"
-	tracee "github.com/aquasecurity/tracee/tracee/external"
 )
 
-func TestCodeInjection(t *testing.T) {
+func TestStdIoOverSocket(t *testing.T) {
 	SigTests := []signaturestest.SigTest{
 		{
 			Events: []types.Event{
 				tracee.Event{
-					EventName: "ptrace",
+					ProcessID: 45,
+					EventName: "connect",
 					Args: []tracee.Argument{
 						{
 							ArgMeta: tracee.ArgMeta{
-								Name: "request",
+								Name: "sockfd",
 							},
-							Value: "PTRACE_POKETEXT",
+							Value: 5,
+						},
+						{
+							ArgMeta: tracee.ArgMeta{
+								Name: "addr",
+							},
+							Value: "{'sa_family': 'AF_INET','sin_port': '53','sin_addr': '10.225.0.2'}",
+						},
+					},
+				},
+				tracee.Event{
+					ProcessID: 45,
+					EventName: "dup2",
+					Args: []tracee.Argument{
+						{
+							ArgMeta: tracee.ArgMeta{
+								Name: "oldfd",
+							},
+							Value: 5,
+						},
+						{
+							ArgMeta: tracee.ArgMeta{
+								Name: "newfd",
+							},
+							Value: 0,
 						},
 					},
 				},
@@ -29,13 +54,20 @@ func TestCodeInjection(t *testing.T) {
 		{
 			Events: []types.Event{
 				tracee.Event{
-					EventName: "ptrace",
+					ProcessID: 45,
+					EventName: "dup2",
 					Args: []tracee.Argument{
 						{
 							ArgMeta: tracee.ArgMeta{
-								Name: "request",
+								Name: "oldfd",
 							},
-							Value: "PTRACE_TRACEME",
+							Value: 5,
+						},
+						{
+							ArgMeta: tracee.ArgMeta{
+								Name: "newfd",
+							},
+							Value: 0,
 						},
 					},
 				},
@@ -45,63 +77,50 @@ func TestCodeInjection(t *testing.T) {
 		{
 			Events: []types.Event{
 				tracee.Event{
-					EventName: "open",
+					ProcessID: 45,
+					EventName: "connect",
 					Args: []tracee.Argument{
 						{
 							ArgMeta: tracee.ArgMeta{
-								Name: "pathname",
+								Name: "sockfd",
 							},
-							Value: "/proc/self/mem",
+							Value: 5,
 						},
 						{
 							ArgMeta: tracee.ArgMeta{
-								Name: "flags",
+								Name: "addr",
 							},
-							Value: "o_wronly",
+							Value: "{'sa_family': 'AF_INET','sin_port': '53','sin_addr': '10.225.0.2'}",
 						},
 					},
 				},
-			},
-			Expect: true,
-		},
-		{
-			Events: []types.Event{
 				tracee.Event{
-					EventName: "open",
+					ProcessID: 45,
+					EventName: "close",
 					Args: []tracee.Argument{
 						{
 							ArgMeta: tracee.ArgMeta{
-								Name: "pathname",
+								Name: "fd",
 							},
-							Value: "/proc/foo",
-						},
-						{
-							ArgMeta: tracee.ArgMeta{
-								Name: "flags",
-							},
-							Value: "o_wronly",
+							Value: 5,
 						},
 					},
 				},
-			},
-			Expect: false,
-		},
-		{
-			Events: []types.Event{
 				tracee.Event{
-					EventName: "open",
+					ProcessID: 45,
+					EventName: "dup2",
 					Args: []tracee.Argument{
 						{
 							ArgMeta: tracee.ArgMeta{
-								Name: "pathname",
+								Name: "oldfd",
 							},
-							Value: "/proc/self/mem",
+							Value: 5,
 						},
 						{
 							ArgMeta: tracee.ArgMeta{
-								Name: "flags",
+								Name: "newfd",
 							},
-							Value: "o_rdonly",
+							Value: 0,
 						},
 					},
 				},
@@ -111,57 +130,38 @@ func TestCodeInjection(t *testing.T) {
 		{
 			Events: []types.Event{
 				tracee.Event{
-					EventName: "execve",
+					ProcessID: 45,
+					EventName: "connect",
 					Args: []tracee.Argument{
 						{
 							ArgMeta: tracee.ArgMeta{
-								Name: "envp",
+								Name: "sockfd",
 							},
-							Value: []string{"FOO=BAR", "LD_PRELOAD=/something"},
+							Value: 5,
 						},
 						{
 							ArgMeta: tracee.ArgMeta{
-								Name: "argv",
+								Name: "addr",
 							},
-							Value: []string{"ls"},
+							Value: "{'sa_family': 'AF_INET','sin_port': '53','sin_addr': '10.225.0.2'}",
 						},
 					},
 				},
-			},
-			Expect: true,
-		},
-		{
-			Events: []types.Event{
 				tracee.Event{
-					EventName: "execve",
+					ProcessID: 22,
+					EventName: "dup2",
 					Args: []tracee.Argument{
 						{
 							ArgMeta: tracee.ArgMeta{
-								Name: "envp",
+								Name: "oldfd",
 							},
-							Value: []string{"FOO=BAR"},
+							Value: 5,
 						},
 						{
 							ArgMeta: tracee.ArgMeta{
-								Name: "argv",
+								Name: "newfd",
 							},
-							Value: []string{"ls"},
-						},
-					},
-				},
-			},
-			Expect: false,
-		},
-		{
-			Events: []types.Event{
-				tracee.Event{
-					EventName: "execve",
-					Args: []tracee.Argument{
-						{
-							ArgMeta: tracee.ArgMeta{
-								Name: "argv",
-							},
-							Value: []string{"ls"},
+							Value: 0,
 						},
 					},
 				},
@@ -169,8 +169,9 @@ func TestCodeInjection(t *testing.T) {
 			Expect: false,
 		},
 	}
+
 	for _, st := range SigTests {
-		sig := codeInjection{}
+		sig := stdIoOverSocket{}
 		st.Init(&sig)
 		for _, e := range st.Events {
 			err := sig.OnEvent(e)
@@ -179,7 +180,7 @@ func TestCodeInjection(t *testing.T) {
 			}
 		}
 		if st.Expect != st.Status {
-			t.Error("unexpected result", st)
+			t.Error("unExpected result", st)
 		}
 	}
 }
