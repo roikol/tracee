@@ -77,16 +77,25 @@ func (sig *stdioOverSocket) OnEvent(e types.Event) error {
 
 		if connectData.SaFamily == "AF_INET" {
 			ip = connectData.SinAddr
+
+			_, pidExists := sig.processSocketIp[pid]
+			if !pidExists {
+				sig.processSocketIp[pid] = make(map[int]string)
+			}
+
+			sig.processSocketIp[pid][sockfd] = ip
+
 		} else if connectData.SaFamily == "AF_INET6" {
 			ip = connectData.SinAddr6
-		}
 
-		_, pidExists := sig.processSocketIp[pid]
-		if !pidExists {
-			sig.processSocketIp[pid] = make(map[int]string)
-		}
+			_, pidExists := sig.processSocketIp[pid]
+			if !pidExists {
+				sig.processSocketIp[pid] = make(map[int]string)
+			}
 
-		sig.processSocketIp[pid][sockfd] = ip
+			sig.processSocketIp[pid][sockfd] = ip
+
+		}
 
 	case "dup":
 
