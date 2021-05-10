@@ -58,17 +58,29 @@ func main() {
 			}
 
 			var inputs engine.EventSources
-			opts, err := parseTraceeInputOptions(c.StringSlice("input-tracee"))
+
+			traceeOpts, err := parseTraceeInputOptions(c.StringSlice("input-tracee"))
 			if err == errHelp {
 				printHelp()
 				return nil
 			}
-			if err != nil {
-				return err
+			if err == nil {
+				inputs.Tracee, err = setupTraceeInputSource(traceeOpts)
+				if err != nil {
+					return err
+				}
 			}
-			inputs.Tracee, err = setupTraceeInputSource(opts)
-			if err != nil {
-				return err
+
+			k8sApiOpts, err := parseK8sApiInputOptions(c.StringSlice("input-k8s-api"))
+			if err == errHelp {
+				printK8sHelp()
+				return nil
+			}
+			if err == nil {
+				inputs.K8sApi, err = setupK8sApiInputSource(k8sApiOpts)
+				if err != nil {
+					return err
+				}
 			}
 
 			if inputs == (engine.EventSources{}) {
@@ -111,6 +123,10 @@ func main() {
 			&cli.StringSliceFlag{
 				Name:  "input-tracee",
 				Usage: "configure tracee-ebpf as input source. see '--input-tracee help' for more info",
+			},
+			&cli.StringSliceFlag{
+				Name:  "input-k8s-api",
+				Usage: "configure Kubernetes Api Server Logs as input source. see '--input-k8s-api help' for more info",
 			},
 			&cli.StringFlag{
 				Name:  "output-template",

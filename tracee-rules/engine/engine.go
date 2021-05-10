@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"fmt"
 	"io"
 	"log"
 
@@ -20,6 +21,7 @@ type Engine struct {
 //EventSources is a bundle of input sources used to configure the Engine
 type EventSources struct {
 	Tracee chan types.Event
+	K8sApi chan types.Event
 }
 
 // NewEngine creates a new rules-engine with the given arguments
@@ -94,6 +96,7 @@ func (engine *Engine) consumeSources(done <-chan bool) {
 	for {
 		select {
 		case event, ok := <-engine.inputs.Tracee:
+			fmt.Printf("engine: consuming source tracee.\n")
 			if !ok {
 				for sig := range engine.signatures {
 					se, err := sig.GetSelectedEvents()
@@ -114,6 +117,34 @@ func (engine *Engine) consumeSources(done <-chan bool) {
 					engine.signatures[s] <- event
 				}
 				for _, s := range engine.signaturesIndex[types.SignatureEventSelector{Source: "tracee", Name: "*"}] {
+					engine.signatures[s] <- event
+				}
+			}
+		case event, ok := <-engine.inputs.K8sApi:
+			fmt.Printf("engine: consuming source k8s-api.\n")
+			if !ok {
+				for sig := range engine.signatures {
+					se, err := sig.GetSelectedEvents()
+					if err != nil {
+						engine.logger.Printf("%v", err)
+						continue
+					}
+					for _, sel := range se {
+						if sel.Source == "k8s" {
+							_ = sig.OnSignal(types.SignalSourceComplete("k8s"))
+							break
+						}
+					}
+				}
+				engine.inputs.K8sApi = nil
+			} else if event != nil {
+				fmt.Printf("engine: consuming: k8s-api event is not nil: %s.\n", event)
+				//for _, s := range engine.signaturesIndex[types.SignatureEventSelector{Source: "k8s", Name: event.(tracee.Event).EventName}] {
+				//	engine.signatures[s] <- event
+				//}
+				for _, s := range engine.signaturesIndex[types.SignatureEventSelector{Source: "k8s", Name: "*"}] {
+					meta, _ := s.GetMetadata()
+					fmt.Printf("engine: consuming: k8s-api event on sig %s.\n", meta.Name)
 					engine.signatures[s] <- event
 				}
 			}
