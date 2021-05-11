@@ -12,6 +12,41 @@ import (
 	"github.com/aquasecurity/tracee/tracee-rules/types"
 )
 
+type k8sApiEvent struct {
+	HoneypotVersion          string `json:"honeypot_version"`
+	ReportTime               string `json:"report_time"`
+	Kind                     string `json:"kind"`
+	ApiVersion               string `json:"apiVersion"`
+	Level                    string `json:"level"`
+	AuditID                  string `json:"auditID"`
+	Stage                    string `json:"stage"`
+	RequestURI               string `json:"requestURI"`
+	Verb                     string `json:"verb"`
+	User                     k8sUser
+	SourceIPs                []string `json:"sourceIPs"`
+	UserAgent                string   `json:"userAgent"`
+	ResponseStatus           k8sResponseStatus
+	RequestReceivedTimestamp string `json:"requestReceivedTimestamp"`
+	StageTimestamp           string `json:"stageTimestamp"`
+	Annotations              k8sAnnotations
+	AttackId                 string `json:"attack_id"`
+}
+
+type k8sUser struct {
+	Username string   `json:"username"`
+	Groups   []string `json:"groups"`
+}
+
+type k8sResponseStatus struct {
+	Metadata map[string]interface{} `json:"metadata"`
+	Code     int                    `json:"code"`
+}
+
+type k8sAnnotations struct {
+	AuthorisationDecision string `json:"authorization.k8s.io/decision"`
+	AuthorisationReason   string `json:"authorization.k8s.io/reason"`
+}
+
 type k8sApiInputOptions struct {
 	inputFile   *os.File
 	inputFormat inputFormat
@@ -32,13 +67,12 @@ func setupK8sApiJSONInputSource(opts *k8sApiInputOptions) (chan types.Event, err
 	go func() {
 		for scanner.Scan() {
 			event := scanner.Bytes()
-			validJson := json.Valid(event)
-			if !validJson {
-				log.Printf("invalid json in %s", string(event))
+			var e k8sApiEvent
+			err := json.Unmarshal(event, &e)
+			if err != nil {
+				log.Printf("invalid json in %s: %v", string(event), err)
 			}
-			fmt.Printf("json event is valid.\n")
-			res <- event
-			fmt.Printf("sent event to channel res.\n")
+			res <- e
 		}
 		opts.inputFile.Close()
 		close(res)
@@ -118,18 +152,27 @@ func parseK8sApiInputFormat(option *k8sApiInputOptions, formatString string) err
 
 func printK8sHelp() {
 	k8sApiInputHelp := `
-tracee-rules --input-ks8-api <key:value>,<key:value> --input-tracee <key:value>
+tracee-rules --input-ks8-api <key:value>,<key:value> --input-ks8-api <key:value>
 
-Specify various key value pairs for input options tracee-ebpf. The following key options are available:
+you should supply an output-template, so tracee-rules would know how to print a detection:
+"
+*** Detection ***
+Time: {{ dateInZone "2006-01-02T15:04:05Z" (now) "UTC" }}
+Signature ID: {{ .SigMetadata.ID }}
+Signature: {{ .SigMetadata.Name }}
+Data: {{ .Data }}
+RequestURI: {{ .Context.RequestURI }}
+User: {{ .Context.User.Username }}
+"
+
+Specify various key value pairs for input options k8s-api. The following key options are available:
 
 'file'   - Input file source. You can specify a relative or absolute path. You may also specify 'stdin' for standard input.
-'format' - Input format. Options currently include 'JSON' and 'GOB'. Both can be specified as output formats from tracee-ebpf.
+'format' - Input format. Options currently include only 'JSON'.
 
 Examples:
 
-'tracee-rules --input-tracee file:./events.json --input-tracee format:json'
-'tracee-rules --input-tracee file:./events.gob --input-tracee format:gob'
-'sudo tracee-ebpf -o format:gob | tracee-rules --input-tracee file:stdin --input-tracee format:gob'
+'cat k8s_event.json | tracee-rules --input-ks8-api file:stdin --input-ks8-api format:json --output-template=k8s_event_template.tmpl'
 `
 
 	fmt.Println(k8sApiInputHelp)

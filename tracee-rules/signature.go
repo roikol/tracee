@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	_ "embed"
 
 	"fmt"
@@ -97,7 +99,10 @@ func findRegoSigs(dir string) ([]types.Signature, error) {
 		}
 		sig, err := regosig.NewRegoSignature(string(regoCode), regoHelpersCode)
 		if err != nil {
-			log.Printf("error creating rego signature with: %s: %v ", regoCode[0:20], err)
+			bytesReader := bytes.NewReader(regoCode)
+			bufReader := bufio.NewReader(bytesReader)
+			packageName, _, _ := bufReader.ReadLine()
+			log.Printf("error creating rego signature with: %s: %v ", packageName, err)
 			continue
 		}
 		res = append(res, sig)

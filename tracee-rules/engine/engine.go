@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"fmt"
 	"io"
 	"log"
 
@@ -96,7 +95,6 @@ func (engine *Engine) consumeSources(done <-chan bool) {
 	for {
 		select {
 		case event, ok := <-engine.inputs.Tracee:
-			fmt.Printf("engine: consuming source tracee.\n")
 			if !ok {
 				for sig := range engine.signatures {
 					se, err := sig.GetSelectedEvents()
@@ -121,7 +119,6 @@ func (engine *Engine) consumeSources(done <-chan bool) {
 				}
 			}
 		case event, ok := <-engine.inputs.K8sApi:
-			fmt.Printf("engine: consuming source k8s-api.\n")
 			if !ok {
 				for sig := range engine.signatures {
 					se, err := sig.GetSelectedEvents()
@@ -138,13 +135,7 @@ func (engine *Engine) consumeSources(done <-chan bool) {
 				}
 				engine.inputs.K8sApi = nil
 			} else if event != nil {
-				fmt.Printf("engine: consuming: k8s-api event is not nil: %s.\n", event)
-				//for _, s := range engine.signaturesIndex[types.SignatureEventSelector{Source: "k8s", Name: event.(tracee.Event).EventName}] {
-				//	engine.signatures[s] <- event
-				//}
 				for _, s := range engine.signaturesIndex[types.SignatureEventSelector{Source: "k8s", Name: "*"}] {
-					meta, _ := s.GetMetadata()
-					fmt.Printf("engine: consuming: k8s-api event on sig %s.\n", meta.Name)
 					engine.signatures[s] <- event
 				}
 			}

@@ -62,6 +62,10 @@ func setupOutput(w io.Writer, webhook string, webhookTemplate string, contentTyp
 				if err := tOutput.Execute(w, res); err != nil {
 					log.Println("error writing to output: ", err)
 				}
+			case k8sApiEvent:
+				if err := tOutput.Execute(w, res); err != nil {
+					log.Println("error writing to output: ", err)
+				}
 			default:
 				log.Printf("unsupported event detected: %T\n", res.Context)
 				continue

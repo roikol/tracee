@@ -135,7 +135,28 @@ func (sig *RegoSignature) getSelectedEvents(pkgName string) ([]types.SignatureEv
 func (sig *RegoSignature) OnEvent(e types.Event) error {
 	ee, ok := e.(tracee.Event)
 	if !ok {
-		return fmt.Errorf("invalid event")
+		results, err := sig.matchPQ.Eval(context.TODO(), rego.EvalInput(e))
+		if err != nil {
+			return err
+		}
+		if len(results) > 0 && len(results[0].Expressions) > 0 && results[0].Expressions[0].Value != nil {
+			switch v := results[0].Expressions[0].Value.(type) {
+			case bool:
+				if v {
+					sig.cb(types.Finding{
+						Data:        nil,
+						Context:     e,
+						SigMetadata: sig.metadata,
+					})
+				}
+			case map[string]interface{}:
+				sig.cb(types.Finding{
+					Data:        v,
+					Context:     e,
+					SigMetadata: sig.metadata,
+				})
+			}
+		}
 	}
 
 	results, err := sig.matchPQ.Eval(context.TODO(), rego.EvalInput(ee))
