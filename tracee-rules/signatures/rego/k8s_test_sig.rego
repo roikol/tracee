@@ -19,10 +19,7 @@ tracee_selected_events[eventSelector] {
 	}
 }
 
-tracee_match {
-    input.kind == "Event"
-}
-
-tracee_match {
-    input["kind"] == "Event"
+tracee_match = res {
+    g := input
+    res := g
 }

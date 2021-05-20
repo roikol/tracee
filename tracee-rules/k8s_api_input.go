@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Jeffail/gabs/v2"
 	"github.com/aquasecurity/tracee/tracee-rules/types"
 )
 
@@ -67,8 +68,10 @@ func setupK8sApiJSONInputSource(opts *k8sApiInputOptions) (chan types.Event, err
 	go func() {
 		for scanner.Scan() {
 			event := scanner.Bytes()
-			var e k8sApiEvent
-			err := json.Unmarshal(event, &e)
+			//var e k8sApiEvent
+			//var e map[string]interface{}
+			e, err := gabs.ParseJSON(event)
+			//err := json.Unmarshal(event, &e)
 			if err != nil {
 				log.Printf("invalid json in %s: %v", string(event), err)
 			}

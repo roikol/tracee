@@ -157,30 +157,31 @@ func (sig *RegoSignature) OnEvent(e types.Event) error {
 				})
 			}
 		}
-	}
-
-	results, err := sig.matchPQ.Eval(context.TODO(), rego.EvalInput(ee))
-	if err != nil {
-		return err
-	}
-	if len(results) > 0 && len(results[0].Expressions) > 0 && results[0].Expressions[0].Value != nil {
-		switch v := results[0].Expressions[0].Value.(type) {
-		case bool:
-			if v {
+	} else {
+		results, err := sig.matchPQ.Eval(context.TODO(), rego.EvalInput(ee))
+		if err != nil {
+			return err
+		}
+		if len(results) > 0 && len(results[0].Expressions) > 0 && results[0].Expressions[0].Value != nil {
+			switch v := results[0].Expressions[0].Value.(type) {
+			case bool:
+				if v {
+					sig.cb(types.Finding{
+						Data:        nil,
+						Context:     ee,
+						SigMetadata: sig.metadata,
+					})
+				}
+			case map[string]interface{}:
 				sig.cb(types.Finding{
-					Data:        nil,
+					Data:        v,
 					Context:     ee,
 					SigMetadata: sig.metadata,
 				})
 			}
-		case map[string]interface{}:
-			sig.cb(types.Finding{
-				Data:        v,
-				Context:     ee,
-				SigMetadata: sig.metadata,
-			})
 		}
 	}
+
 	return nil
 }
 

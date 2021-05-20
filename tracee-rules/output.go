@@ -67,6 +67,9 @@ func setupOutput(w io.Writer, webhook string, webhookTemplate string, contentTyp
 					log.Println("error writing to output: ", err)
 				}
 			default:
+				if err := tOutput.Execute(w, res); err != nil {
+					log.Println("error writing to output: ", err)
+				}
 				log.Printf("unsupported event detected: %T\n", res.Context)
 				continue
 			}
