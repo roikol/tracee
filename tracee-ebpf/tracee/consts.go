@@ -160,6 +160,8 @@ const (
 	SecuritySocketAcceptEventID
 	SecuritySocketBindEventID
 	SecuritySbMountEventID
+	SecurityInodeSymlinkEventID
+	SecurityPathSymlinkEventID
 	MaxEventID
 )
 
@@ -538,6 +540,8 @@ var EventsIDToEvent = map[int32]EventConfig{
 	SecuritySocketAcceptEventID:  {ID: SecuritySocketAcceptEventID, ID32Bit: sys32undefined, Name: "security_socket_accept", Probes: []probe{{event: "security_socket_accept", attach: kprobe, fn: "trace_security_socket_accept"}}, Sets: []string{"lsm_hooks"}},
 	SecuritySocketBindEventID:    {ID: SecuritySocketBindEventID, ID32Bit: sys32undefined, Name: "security_socket_bind", Probes: []probe{{event: "security_socket_bind", attach: kprobe, fn: "trace_security_socket_bind"}}, Sets: []string{"lsm_hooks"}},
 	SecuritySbMountEventID:       {ID: SecuritySbMountEventID, ID32Bit: sys32undefined, Name: "security_sb_mount", Probes: []probe{{event: "security_sb_mount", attach: kprobe, fn: "trace_security_sb_mount"}}, Sets: []string{"default", "lsm_hooks"}},
+	SecurityInodeSymlinkEventID:  {ID: SecurityInodeSymlinkEventID, ID32Bit: sys32undefined, Name: "security_inode_symlink", Probes: []probe{{event: "security_inode_symlink", attach: kprobe, fn: "trace_security_inode_symlink"}}, Sets: []string{"default", "lsm_hooks"}},
+	SecurityPathSymlinkEventID:   {ID: SecurityPathSymlinkEventID, ID32Bit: sys32undefined, Name: "security_path_symlink", Probes: []probe{{event: "security_path_symlink", attach: kprobe, fn: "trace_security_path_symlink"}}, Sets: []string{"default", "lsm_hooks"}},
 }
 
 // EventsIDToParams is list of the parameters (name and type) used by the events
@@ -903,4 +907,6 @@ var EventsIDToParams = map[int32][]external.ArgMeta{
 	SecuritySocketAcceptEventID:  {{Type: "int", Name: "sockfd"}, {Type: "struct sockaddr*", Name: "local_addr"}},
 	SecuritySocketBindEventID:    {{Type: "int", Name: "sockfd"}, {Type: "struct sockaddr*", Name: "local_addr"}},
 	SecuritySbMountEventID:       {{Type: "const char*", Name: "dev_name"}, {Type: "const char*", Name: "path"}, {Type: "const char*", Name: "type"}, {Type: "unsigned long", Name: "flags"}},
+	SecurityInodeSymlinkEventID:  {{Type: "const char*", Name: "new_pathname"}, {Type: "const char*", Name: "old_name"}, {Type: "const char*", Name: "pwd"}},
+	SecurityPathSymlinkEventID:   {{Type: "const char*", Name: "new_pathname"}, {Type: "const char*", Name: "old_name"}, {Type: "const char*", Name: "pwd"}},
 }

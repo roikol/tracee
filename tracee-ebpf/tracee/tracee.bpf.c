@@ -19,6 +19,7 @@
 #include <uapi/linux/utsname.h>
 #include <linux/binfmts.h>
 #include <linux/cred.h>
+#include <linux/fs_struct.h>
 #include <linux/sched.h>
 #include <linux/fs.h>
 #include <linux/mm_types.h>
@@ -163,7 +164,9 @@
 #define SECURITY_SOCKET_ACCEPT  1017
 #define SECURITY_SOCKET_BIND    1018
 #define SECURITY_SB_MOUNT       1019
-#define MAX_EVENT_ID            1020
+#define SECURITY_INODE_SYMLINK  1020
+#define SECURITY_PATH_SYMLINK   1021
+#define MAX_EVENT_ID            1022
 
 #define CONFIG_SHOW_SYSCALL         1
 #define CONFIG_EXEC_ENV             2
@@ -658,6 +661,15 @@ static __always_inline volatile unsigned char get_sock_state(struct sock *sock)
 static __always_inline struct ipv6_pinfo* get_inet_pinet6(struct inet_sock *inet)
 {
     return READ_KERN(inet->pinet6);
+}
+
+static __always_inline struct dentry* get_task_pwd_dentry(struct task_struct *task)
+{
+    struct fs_struct *fs = READ_KERN(task->fs);
+    struct path pwd = READ_KERN(fs->pwd);
+//    struct dentry *dentry = READ_KERN(pwd->dentry);
+    struct dentry *dentry = pwd.dentry;
+    return dentry;
 }
 
 /*============================== HELPER FUNCTIONS ==============================*/
@@ -2138,6 +2150,106 @@ int BPF_KPROBE(trace_security_inode_unlink)
     }
 
     save_str_to_buf(submit_p, (void *)&string_p->buf[*off], DEC_ARG(0, *tags));
+
+    events_perf_submit(ctx);
+    return 0;
+}
+
+SEC("kprobe/security_inode_symlink")
+int BPF_KPROBE(trace_security_inode_symlink)
+{
+    if (!should_trace())
+        return 0;
+
+    buf_t *submit_p = get_buf(SUBMIT_BUF_IDX);
+    if (submit_p == NULL)
+        return 0;
+    set_buf_off(SUBMIT_BUF_IDX, sizeof(context_t));
+
+    context_t context = init_and_save_context(ctx, submit_p, SECURITY_INODE_SYMLINK, 3 /*argnum*/, 0 /*ret*/);
+
+    u64 *tags = bpf_map_lookup_elem(&params_names_map, &context.eventid);
+    if (!tags) {
+        return -1;
+    }
+
+    struct dentry *dentry = (struct dentry *)PT_REGS_PARM2(ctx);
+
+    // Get per-cpu string buffer
+    buf_t *string_p = get_buf(STRING_BUF_IDX);
+    if (string_p == NULL)
+        return -1;
+    save_dentry_path_to_str_buf(string_p, dentry);
+    u32 *off = get_buf_off(STRING_BUF_IDX);
+    if (off == NULL)
+        return -1;
+
+    save_str_to_buf(submit_p, (void *)&string_p->buf[*off], DEC_ARG(0, *tags));
+
+    const char *old_name = (const char *)PT_REGS_PARM3(ctx);
+
+    save_str_to_buf(submit_p, (void *)old_name, DEC_ARG(1, *tags));
+
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    struct dentry *pwd_dentry = get_task_pwd_dentry(task);
+
+    save_dentry_path_to_str_buf(string_p, pwd_dentry);
+    u32 *pwd_off = get_buf_off(STRING_BUF_IDX);
+    if (pwd_off == NULL){
+        return -1;
+    }
+
+    save_str_to_buf(submit_p, (void *)&string_p->buf[*pwd_off], DEC_ARG(2, *tags));
+
+    events_perf_submit(ctx);
+    return 0;
+}
+
+SEC("kprobe/security_path_symlink")
+int BPF_KPROBE(trace_security_path_symlink)
+{
+    if (!should_trace())
+        return 0;
+
+    buf_t *submit_p = get_buf(SUBMIT_BUF_IDX);
+    if (submit_p == NULL)
+        return 0;
+    set_buf_off(SUBMIT_BUF_IDX, sizeof(context_t));
+
+    context_t context = init_and_save_context(ctx, submit_p, SECURITY_PATH_SYMLINK, 3 /*argnum*/, 0 /*ret*/);
+
+    struct dentry *dentry = (struct dentry *)PT_REGS_PARM2(ctx);
+
+    // Get per-cpu string buffer
+    buf_t *string_p = get_buf(STRING_BUF_IDX);
+    if (string_p == NULL)
+        return -1;
+    save_dentry_path_to_str_buf(string_p, dentry);
+    u32 *off = get_buf_off(STRING_BUF_IDX);
+    if (off == NULL)
+        return -1;
+
+    u64 *tags = bpf_map_lookup_elem(&params_names_map, &context.eventid);
+    if (!tags) {
+        return -1;
+    }
+
+    save_str_to_buf(submit_p, (void *)&string_p->buf[*off], DEC_ARG(0, *tags));
+
+    const char *old_name = (const char *)PT_REGS_PARM3(ctx);
+
+    save_str_to_buf(submit_p, (void *)old_name, DEC_ARG(1, *tags));
+
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    struct dentry *pwd_dentry = get_task_pwd_dentry(task);
+
+    save_dentry_path_to_str_buf(string_p, pwd_dentry);
+    u32 *pwd_off = get_buf_off(STRING_BUF_IDX);
+    if (pwd_off == NULL){
+        return -1;
+    }
+
+    save_str_to_buf(submit_p, (void *)&string_p->buf[*pwd_off], DEC_ARG(2, *tags));
 
     events_perf_submit(ctx);
     return 0;
